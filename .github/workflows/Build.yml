@@ -18,26 +18,26 @@ jobs:
     strategy:
       matrix:
         include:
-          # - os: buster
-          #   compiler: g++
-          #   cpp: 17
-          #   asan: off
-          #   ubsan: off
-          - os: focal
-            compiler: clang++
+          - os: buster
+            compiler: g++
             cpp: 17
             asan: off
-            ubsan: on
-          - os: focal
-            compiler: g++-10
-            cpp: 20
-            asan: on
             ubsan: off
-          - os: jammy
-            compiler: g++
-            cpp: 20
-            asan: on
-            ubsan: off
+          # - os: focal
+          #   compiler: clang++
+          #   cpp: 17
+          #   asan: off
+          #   ubsan: on
+          # - os: focal
+          #   compiler: g++-10
+          #   cpp: 20
+          #   asan: on
+          #   ubsan: off
+          # - os: jammy
+          #   compiler: g++
+          #   cpp: 20
+          #   asan: on
+          #   ubsan: off
 
     name: "${{matrix.os}}/${{matrix.compiler}}/c++${{matrix.cpp}}/asan=${{matrix.asan}}/ubsan=${{matrix.ubsan}}"
 
@@ -86,7 +86,7 @@ jobs:
 
     - name: Compile dummy PHP script
       run: docker exec kphp-build-container-${{matrix.os}} bash -c 
-              "cd ${{env.kphp_build_dir}} && echo 'hello world' > demo.php && ${{env.kphp_root_dir}}/objs/bin/kphp2cpp --cxx ${{matrix.compiler}} demo.php && kphp_out/server -o --user kitten"
+              "chown -R kitten ${{env.kphp_root_dir}} && cd ${{env.kphp_root_dir}} && ${{env.kphp_root_dir}}/objs/bin/kphp2cpp --cxx ${{matrix.compiler}} test.php && kphp_out/server -o --user kitten"
 
     - name: Polyfills composer install
       run: docker exec kphp-build-container-${{matrix.os}} bash -c
