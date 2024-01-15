@@ -7,7 +7,6 @@ require_once 'kphp_tester_include.php';
 
 function test_new_options() {
   $c = curl_init();
-  curl_setopt($c, CURLOPT_URL, "https://example.com/");
 
   var_dump(curl_setopt($c, CURLOPT_SSH_COMPRESSION, true));              // got 48 error
 
@@ -23,8 +22,7 @@ function test_new_options() {
   var_dump(curl_setopt($c, CURLOPT_SSH_HOST_PUBLIC_KEY_SHA256, "smth")); // got 48 error, needs libssh2
   var_dump(curl_setopt($c, CURLOPT_TLS13_CIPHERS, "smth"));              // got 4 error
 
-  var_dump(curl_exec($c));
   curl_close($c);
 }
 
-// test_new_options();
+test_new_options();
