@@ -576,18 +576,22 @@ void header_option_setter(EasyContext *easy_context, CURLoption option, const mi
 }
 
 void stream_option_setter(EasyContext *easy_context, CURLoption option, const mixed &value) {
-  if (value.is_null()) {
-    php_warning ("The provided file handle must not be null");
-    //easy_context->error_num = CURLE_WRITE_ERROR;
-    easy_context->error_num = -1;
-    return;
-  }
   switch (option) {
     case CURLOPT_INFILE:
+      if (value.is_null()) {
+        easy_context->read_handler.stream = nullptr;
+        easy_context->read_handler.method = KPHP_CURL_STDOUT;
+        break;
+      }
       // store Stream value in read_handler
       easy_context->read_handler.stream = &value;
       break;
     case CURLOPT_FILE:
+      if (value.is_null()) {
+        easy_context->write_handler.stream = nullptr;
+        easy_context->write_handler.method = KPHP_CURL_STDOUT;
+        break;
+      }
       {
         string temp = value.as_string();
         string::size_type p = temp.find_first_of(string("://"), 0);
@@ -606,6 +610,11 @@ void stream_option_setter(EasyContext *easy_context, CURLoption option, const mi
       easy_context->write_handler.method = KPHP_CURL_FILE;
       break;
     case CURLOPT_WRITEHEADER:
+      if (value.is_null()) {
+        easy_context->write_header_handler.stream = nullptr;
+        easy_context->write_header_handler.method = KPHP_CURL_IGNORE;
+        break;
+      } 
       {
         string temp = value.as_string();
         string::size_type p = temp.find_first_of(string("://"), 0);
@@ -614,7 +623,7 @@ void stream_option_setter(EasyContext *easy_context, CURLoption option, const mi
           php_warning ("%s(): The provided file handle must be writable", value.as_string().c_str());
           easy_context->write_header_handler.stream = nullptr;
           easy_context->write_header_handler.method = KPHP_CURL_IGNORE;
-          //easy_context->error_num = CURLE_WRITE_ERROR;
+          // easy_context->error_num = CURLE_WRITE_ERROR;
           easy_context->error_num = -1;
           return;
         }
