@@ -147,11 +147,13 @@ void append_apple_options(std::string &cxx_flags, std::string &ld_flags) noexcep
   std::string common_path = "/usr/local";
 #endif
   cxx_flags += " -I" + common_path + "/include"
+               " -I/usr/local/include"
                " -I" + common_path + "/opt/openssl/include";
   ld_flags += " -liconv"
               " -lepoll-shim"
               " -L" EPOLL_SHIM_LIB_DIR
               " -L" + common_path + "/lib"
+              " -L/usr/local/lib"
               " -undefined dynamic_lookup"
 #ifdef PDO_DRIVER_PGSQL
               " -L" + common_path + "/opt/libpq/lib"
@@ -163,7 +165,6 @@ void append_apple_options(std::string &cxx_flags, std::string &ld_flags) noexcep
   static_cast<void>(ld_flags);
 #endif
 }
-
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
