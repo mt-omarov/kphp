@@ -50,11 +50,6 @@ function test_linked_list_options() {
   var_dump(curl_setopt($c, CURLOPT_MAIL_RCPT, []));
   var_dump(curl_setopt($c, CURLOPT_RESOLVE, ["www.example.com:8081:127.0.0.1"]));
 
-  // bad values
-  //var_dump(curl_setopt($c, CURLOPT_MAIL_RCPT, "bad value"));
-  //var_dump(curl_setopt($c, CURLOPT_QUOTE, 1));
-  //var_dump(curl_setopt($c, CURLOPT_POSTQUOTE, null));
-
   curl_close($c);
 }
 
@@ -67,10 +62,6 @@ function test_proxy_type_option() {
   var_dump(curl_setopt($c, CURLOPT_PROXYTYPE, CURLPROXY_SOCKS4A));
   var_dump(curl_setopt($c, CURLOPT_PROXYTYPE, CURLPROXY_SOCKS5));
   var_dump(curl_setopt($c, CURLOPT_PROXYTYPE, CURLPROXY_SOCKS5_HOSTNAME));
-
-  // bad values
-  // var_dump(kphp && curl_setopt($c, CURLOPT_PROXYTYPE, -10));
-  // var_dump(kphp && curl_setopt($c, CURLOPT_PROXYTYPE, 9999999));
 
   curl_close($c);
 }
@@ -85,10 +76,6 @@ function test_ssl_version_option() {
   var_dump(curl_setopt($c, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_0));
   var_dump(curl_setopt($c, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_1));
   var_dump(curl_setopt($c, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2));
-
-  // bad values
-  // var_dump(kphp && curl_setopt($c, CURLOPT_SSLVERSION, -10));
-  // var_dump(kphp && curl_setopt($c, CURLOPT_SSLVERSION, 9999999));
 
   curl_close($c);
 }
@@ -115,10 +102,6 @@ function test_ip_resolve_option() {
   var_dump(curl_setopt($c, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4));
   var_dump(curl_setopt($c, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6));
 
-  // bad values
-  // var_dump(kphp && curl_setopt($c, CURLOPT_IPRESOLVE, -10));
-  // var_dump(kphp && curl_setopt($c, CURLOPT_IPRESOLVE, 9999999));
-
   curl_close($c);
 }
 
@@ -129,10 +112,6 @@ function test_ftp_auth_option() {
   var_dump(curl_setopt($c, CURLOPT_FTPSSLAUTH, CURLFTPAUTH_SSL));
   var_dump(curl_setopt($c, CURLOPT_FTPSSLAUTH, CURLFTPAUTH_TLS));
 
-  // bad values
-  // var_dump(kphp && curl_setopt($c, CURLOPT_FTPSSLAUTH, -10));
-  // var_dump(kphp && curl_setopt($c, CURLOPT_FTPSSLAUTH, 9999999));
-
   curl_close($c);
 }
 
@@ -142,10 +121,6 @@ function test_ftp_file_method_option() {
   var_dump(curl_setopt($c, CURLOPT_FTP_FILEMETHOD, CURLFTPMETHOD_MULTICWD));
   var_dump(curl_setopt($c, CURLOPT_FTP_FILEMETHOD, CURLFTPMETHOD_NOCWD));
   var_dump(curl_setopt($c, CURLOPT_FTP_FILEMETHOD, CURLFTPMETHOD_SINGLECWD));
-
-  // bad values
-  // var_dump(kphp && curl_setopt($c, CURLOPT_FTP_FILEMETHOD, -10));
-  // var_dump(kphp && curl_setopt($c, CURLOPT_FTP_FILEMETHOD, 9999999));
 
   curl_close($c);
 }

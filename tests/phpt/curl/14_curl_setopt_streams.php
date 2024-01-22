@@ -4,9 +4,9 @@
 require_once 'kphp_tester_include.php';
 
 // listen different ports for php and kphp 
-$port = 8080;
+$port = 3000;
 if (kphp)
-  $port = 8081;
+  $port = 3001;
 
 class Process {
   private $pid;

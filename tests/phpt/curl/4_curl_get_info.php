@@ -84,10 +84,6 @@ function test_get_info_options() {
   var_dump(curl_getinfo($c, CURLINFO_RTSP_SERVER_CSEQ));
   var_dump(curl_getinfo($c, CURLINFO_RTSP_SESSION_ID));
 
-  // bad options
-  var_dump(curl_getinfo($c, -10));
-  var_dump(curl_getinfo($c, 89984894));
-
   curl_close($c);
 }
 

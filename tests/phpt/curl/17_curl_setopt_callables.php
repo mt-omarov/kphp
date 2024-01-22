@@ -8,9 +8,9 @@ require_once 'kphp_tester_include.php';
 
 $filename_in = "input_test_file.txt";
 $filename_out = "output_test_file.txt";
-$port = 8082;
+$port = 3002;
 if (kphp)
-  $port = 8083;
+  $port = 3003;
 $cmd = "php -S localhost:$port ./$filename_in";
 $text = <<<EOD
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 

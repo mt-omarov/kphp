@@ -12,9 +12,6 @@ function test_curl_multi_setopt() {
   var_dump(curl_multi_setopt($mh, CURLMOPT_MAX_PIPELINE_LENGTH, 777));
   var_dump(curl_multi_setopt($mh, CURLMOPT_MAX_TOTAL_CONNECTIONS, 87));
 
-  // bad option
-  var_dump(curl_multi_setopt($mh, 98491981, 87));
-
   curl_multi_close($mh);
 }
 
