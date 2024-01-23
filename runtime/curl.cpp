@@ -592,18 +592,14 @@ void stream_option_setter(EasyContext *easy_context, CURLoption option, const mi
         easy_context->write_handler.method = KPHP_CURL_STDOUT;
         break;
       }
-      {
-        string temp = value.as_string();
-        string::size_type p = temp.find_first_of(string("://"), 0);
-
-        if ((p == string::npos) || (!f$is_writeable(temp.substr(p+1, temp.size()-p)))) {      
-          php_warning ("%s(): The provided file handle must be writable", value.as_string().c_str());
-          easy_context->write_handler.stream = nullptr;
-          easy_context->write_handler.method = KPHP_CURL_STDOUT;
-          //easy_context->error_num = CURLE_WRITE_ERROR;
-          easy_context->error_num = -1;
-          return;
-        }
+       
+      if (get_file_mode(value) == O_RDONLY) {
+        php_warning ("%s(): The provided file handle must be writable", value.as_string().c_str());
+        easy_context->write_handler.stream = nullptr;
+        easy_context->write_handler.method = KPHP_CURL_STDOUT;
+        //easy_context->error_num = CURLE_WRITE_ERROR;
+        easy_context->error_num = -1;
+        return;
       }
       // store Stream value in write_handler
       easy_context->write_handler.stream = &value;
@@ -615,18 +611,14 @@ void stream_option_setter(EasyContext *easy_context, CURLoption option, const mi
         easy_context->write_header_handler.method = KPHP_CURL_IGNORE;
         break;
       } 
-      {
-        string temp = value.as_string();
-        string::size_type p = temp.find_first_of(string("://"), 0);
-
-        if ((p == string::npos) || (!f$is_writeable(temp.substr(p+1, temp.size()-p)))) {      
-          php_warning ("%s(): The provided file handle must be writable", value.as_string().c_str());
-          easy_context->write_header_handler.stream = nullptr;
-          easy_context->write_header_handler.method = KPHP_CURL_IGNORE;
-          // easy_context->error_num = CURLE_WRITE_ERROR;
-          easy_context->error_num = -1;
-          return;
-        }
+  
+      if (get_file_mode(value) == O_RDONLY) {
+        php_warning ("%s(): The provided file handle must be writable", value.as_string().c_str());
+        easy_context->write_header_handler.stream = nullptr;
+        easy_context->write_header_handler.method = KPHP_CURL_IGNORE;
+        // easy_context->error_num = CURLE_WRITE_ERROR;
+        easy_context->error_num = -1;
+        return;
       }
       // store Stream value in write_header_handler
       easy_context->write_header_handler.stream = &value;
@@ -1018,6 +1010,31 @@ bool f$curl_setopt(curl_easy easy_id, int64_t option, const mixed &value) noexce
     php_warning("Can't set curl option %" PRIi64, option);
   }
   return false;
+}
+
+void f$stream_test(mixed &value) {
+  fprintf(stdout, "get the stream handler '%s'\n", value.as_string().c_str());
+  // how it should be
+  // FILE *file = /* somehow get FILE pointer from Stream value */;
+  /*
+    The problem here is in the accessing FILE pointer from the Stream variable, which is just a string.
+    FILE pointers are stored in the file.cpp static variable, which means, 
+      that external accessing operation on this variable is deprecated.
+    The function, which can extract FILE* from Stream is called get_file(), but it is also static.
+  */
+  // int fd = fileno(file);         // get the file descriptor int from FILE*
+  // int mode = fcntl(fd, F_GETFL); // get a descriptor mode
+  // fprintf(stdout, "the file is writable:%d\n", (mode != O_RDONLY)); 
+  //   (if it is not for reading, then it is for writing or appending)
+
+  int mode = get_file_mode(value); // or we can just add new function to files.h and do that
+  fprintf(stdout, "the file mode is equal to %d\n", mode);
+  fprintf(stdout, "mode is r: %d\n", O_RDONLY == mode);
+  fprintf(stdout, "mode is w: %d\n", O_WRONLY == mode);
+  fprintf(stdout, "mode is a: %d\n", (O_WRONLY | O_APPEND) == mode);
+  fprintf(stdout, "mode is r+: %d\n", O_RDWR == mode);
+  fprintf(stdout, "mode is w+: %d\n", O_RDWR == mode);
+  fprintf(stdout, "mode is a+: %d\n", (O_RDWR | O_APPEND) == mode);
 }
 
 constexpr int64_t CURLSETOPT_HEADERFUNCTION = 210000;

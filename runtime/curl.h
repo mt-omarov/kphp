@@ -23,6 +23,8 @@ namespace curl {
 
 curl_easy f$curl_init(const string &url = string{}) noexcept;
 
+void f$stream_test(mixed &value);
+
 void f$curl_reset(curl_easy easy_id) noexcept;
 
 bool f$curl_setopt(curl_easy easy_id, int64_t option, const mixed &value) noexcept;

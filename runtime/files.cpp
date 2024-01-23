@@ -913,7 +913,6 @@ static Optional<int64_t> file_file_put_contents(const string &name, const string
   return content.size();
 }
 
-
 void global_init_files_lib() {
   static stream_functions file_stream_functions;
 
@@ -958,3 +957,10 @@ void free_files_lib() {
   dl::leave_critical_section();
 }
 
+int get_file_mode(const mixed &stream) {
+  FILE *file = get_file(stream);
+  if (file == nullptr) {
+    return -1;
+  }
+  return fcntl(fileno(file), F_GETFL);
+}

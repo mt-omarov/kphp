@@ -68,7 +68,8 @@ Optional<array<string>> f$scandir(const string &directory);
 
 Optional<string> file_file_get_contents(const string &name);
 
-
 void global_init_files_lib();
 
 void free_files_lib();
+
+int get_file_mode(const mixed &stream);

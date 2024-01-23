@@ -1077,6 +1077,7 @@ define('UPLOAD_ERR_EXTENSION', 8);
 
 function mail ($to ::: string, $subject ::: string, $message ::: string, $additional_headers ::: string = "") ::: bool;
 
+function stream_test ($value ::: mixed) ::: void;
 function curl_init ($url ::: string = "") ::: int;
 function curl_reset ($curl_handle ::: int) ::: void;
 function curl_setopt ($curl_handle ::: int, $option ::: int, $value ::: mixed) ::: bool;
