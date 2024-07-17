@@ -21,12 +21,12 @@ jobs:
     strategy:
       matrix:
         include:
-          # - os: buster
-          #   compiler: g++
-          #   cpp: 17
-          #   asan: off
-          #   ubsan: off
-          #   light_runtime: off
+          - os: buster
+            compiler: g++
+            cpp: 17
+            asan: off
+            ubsan: off
+            light_runtime: off
           - os: focal
             compiler: clang++
             cpp: 17
@@ -62,6 +62,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+
+    - name: Get stippets repo
+      uses: actions/checkout@v3
+      with:
+        repository: 'VKCOM/kphp-snippets'
+        path: 'kphp-snippets'
 
     - name: Get polyfills repo
       uses: actions/checkout@v3
@@ -146,15 +152,19 @@ jobs:
 
     - name: Copy the session_test file
       run: docker exec kphp-build-container-${{matrix.os}} bash -c
-              "su kitten -c 'cp ${{env.session_php_script}} ${{env.kphp_snippets_dir}}/JobWorkers/'"
+              "cp ${{env.session_php_script}} ${{env.kphp_snippets_dir}}/JobWorkers/"
 
     - name: Compile the session_test project
       run: docker exec kphp-build-container-${{matrix.os}} bash -c
-              "su kitten -c 'cd ${{env.kphp_snippets_dir}}/JobWorkers/ && ${{env.kphp_root_dir}}/objs/bin/kphp2cpp --cxx ${{matrix.compiler}} session_test.php -I .. -M server'"
+              "cd ${{env.kphp_snippets_dir}}/JobWorkers/ && ${{env.kphp_root_dir}}/objs/bin/kphp2cpp --cxx ${{matrix.compiler}} session_test.php -I .. -M server"
 
     - name: Start the server
       run: docker exec kphp-build-container-${{matrix.os}} bash -c
-              "su kitten -c 'cd ${{env.kphp_snippets_dir}}/JobWorkers/ && ./kphp_out/server -f 2 --http-port 8080 --job-workers-ratio 0.5 --sql-port 5555 &> log.txt &'"
+              "cd ${{env.kphp_snippets_dir}}/JobWorkers/ && ./kphp_out/server -f 2 --http-port 8080 --job-workers-ratio 0.5 --sql-port 5555 --user kitten &> log.txt &"
+
+    - name: Install curl
+      run: docker exec kphp-build-container-${{matrix.os}} bash -c
+              "apt update && apt install curl"
 
     - name: Send a request to the server
       run: docker exec kphp-build-container-${{matrix.os}} bash -c
@@ -162,11 +172,8 @@ jobs:
 
     - name: Read logs
       run: docker exec kphp-build-container-${{matrix.os}} bash -c
-              "su kitten -c 'cd ${{env.kphp_snippets_dir}}/JobWorkers/ && tail -f log.txt'"
-
-    - name: Remove docker container
-      run: docker rm -f kphp-build-container-${{matrix.os}}
-
+              "cd ${{env.kphp_snippets_dir}}/JobWorkers/ && tail -f log.txt"
+              
   # build-macos:
   #   runs-on: ${{matrix.os}}-12
   #   strategy:

@@ -126,9 +126,13 @@ function handleHttpRequest() {
   $main_request = new MyRequest([], ["second_message" => "world"], $session_id, true);
   $main_job_id = \JobWorkers\JobLauncher::start($main_request, $timeout);
 
-  $new_request = new MyRequest([], ["third_message" => "buy"], $session_id, false);
+  $additional_to_main_request = new MyRequest([], ["third_message" => "buy"], $session_id, false);
+  $additional_to_main_job_id = \JobWorkers\JobLauncher::start($additional_to_main_request, $timeout);
+
+  $new_request = new MyRequest([], ["new_message" => "hi"], false, false);
   $new_job_id = \JobWorkers\JobLauncher::start($new_request, $timeout);
 
+  $additional_to_main_response = wait($additional_to_main_job_id);
   $new_response = wait($new_job_id);
   $main_response = wait($main_job_id);
 
@@ -145,6 +149,14 @@ function handleHttpRequest() {
     var_dump($new_response->session_status);
     var_dump($new_response->session_id);
     var_dump($new_response->session_array);
+    echo "<br><br>";
+  }
+
+   if ($additional_to_main_response instanceof MyResponse) {
+    echo "<br>Opened session:<br>";
+    var_dump($additional_to_main_response->session_status);
+    var_dump($additional_to_main_response->session_id);
+    var_dump($additional_to_main_response->session_array);
     echo "<br><br>";
   }
 }
