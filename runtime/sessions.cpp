@@ -60,7 +60,7 @@ constexpr static auto C_HTTPONLY = "cookie_httponly";
 // TO-DO: reconsider it
 const auto skeys = vk::to_array<std::pair<const char *, const mixed>>({
 	{S_READ_CLOSE, false},
-	{S_DIR, string(getenv("TMPDIR")).append("sessions/")},
+	{S_DIR, string((getenv("TMPDIR") != NULL) ? getenv("TMPDIR") : "/").append("sessions/")},
 	{S_NAME, string("PHPSESSID")},
 	{S_LIFETIME, 1440},
 	{S_PROBABILITY, 1},
