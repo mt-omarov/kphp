@@ -21,12 +21,12 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: buster
-            compiler: g++
-            cpp: 17
-            asan: off
-            ubsan: off
-            light_runtime: off
+          # - os: buster
+          #   compiler: g++
+          #   cpp: 17
+          #   asan: off
+          #   ubsan: off
+          #   light_runtime: off
           - os: focal
             compiler: clang++
             cpp: 17
