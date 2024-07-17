@@ -59,7 +59,7 @@ constexpr static auto C_HTTPONLY = "cookie_httponly";
 // TO-DO: reconsider it
 const auto skeys = vk::to_array<std::pair<const char *, const mixed>>({
 	{S_READ_CLOSE, false},
-	{S_DIR, string(getenv("TMPDIR")).append("sessions/")},
+	{S_DIR, string((getenv("TMPDIR") != NULL) ? getenv("TMPDIR") : "/tmp/").append("sessions/")},
 	{S_NAME, string("PHPSESSID")},
 	{S_LIFETIME, 1440},
 	{S_PROBABILITY, 1},
@@ -209,7 +209,7 @@ static bool session_open() {
 	bool is_new = (!f$file_exists(get_sparam(S_PATH).to_string())) ? 1 : 0;
 	
 	fprintf(stderr, "[%d]\tOpening the session file %s\n", getpid(), get_sparam(S_PATH).to_string().c_str());
-	set_sparam(S_FD, open_safe(get_sparam(S_PATH).to_string().c_str(), O_RDWR | O_CREAT, 0777));
+	set_sparam(S_FD, open_safe(get_sparam(S_PATH).to_string().c_str(), O_RDWR | O_CREAT, 0666));
 
 	if (get_sparam(S_FD).to_int() < 0) {
 		php_warning("Failed to open the file %s", get_sparam(S_PATH).to_string().c_str());
@@ -323,7 +323,7 @@ static bool session_write() {
 	fprintf(stderr, "[%d]\t(rewinding) Closed the file\n", getpid());
 	
 	fprintf(stderr, "[%d]\t(rewinding) Opening the file\n", getpid());
-	set_sparam(S_FD, open_safe(get_sparam(S_PATH).to_string().c_str(), O_RDWR, 0777));
+	set_sparam(S_FD, open_safe(get_sparam(S_PATH).to_string().c_str(), O_RDWR, 0666));
 	fprintf(stderr, "[%d]\t(rewinding) Opened the file\n", getpid());
     lock.l_type = F_WRLCK;
     fprintf(stderr, "[%d]\t(rewinding) Locking the file\n", getpid());
