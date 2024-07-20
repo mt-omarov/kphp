@@ -12,6 +12,8 @@
 #include "common/wrappers/to_array.h"
 #include "runtime/url.h"
 #include "runtime/math_functions.h"
+// #include "common/smart_ptrs/unique_ptr_with_delete_function.h"
+// #include "runtime/exec.h"
 
 namespace sessions {
 
@@ -211,7 +213,7 @@ static bool session_open() {
 	bool is_new = (!f$file_exists(get_sparam(S_PATH).to_string())) ? 1 : 0;
 	
 	fprintf(stderr, "[%d]\tOpening the session file %s\n", getpid(), get_sparam(S_PATH).to_string().c_str());
-	set_sparam(S_FD, open_safe(get_sparam(S_PATH).to_string().c_str(), O_RDWR | O_CREAT, 0777));
+	set_sparam(S_FD, open_safe(get_sparam(S_PATH).to_string().c_str(), O_RDWR | O_CREAT, 0666));
 
 	if (get_sparam(S_FD).to_int() < 0) {
 		php_warning("Failed to open the file %s", get_sparam(S_PATH).to_string().c_str());
@@ -242,6 +244,9 @@ static bool session_open() {
 	int ret_gc_lifetime = get_tag(get_sparam(S_PATH).to_string().c_str(), S_LIFETIME, NULL, 0);
 	if (is_new or ret_ctime < 0) {
 		// add the creation data to metadata of file
+		int is_session = 1;
+		set_tag(get_sparam(S_PATH).to_string().c_str(), "is_session", &is_session, sizeof(int));
+
 		int ctime = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 		set_tag(get_sparam(S_PATH).to_string().c_str(), S_CTIME, &ctime, sizeof(int));
 	}
@@ -325,7 +330,7 @@ static bool session_write() {
 	fprintf(stderr, "[%d]\t(rewinding) Closed the file\n", getpid());
 	
 	fprintf(stderr, "[%d]\t(rewinding) Opening the file\n", getpid());
-	set_sparam(S_FD, open_safe(get_sparam(S_PATH).to_string().c_str(), O_RDWR, 0777));
+	set_sparam(S_FD, open_safe(get_sparam(S_PATH).to_string().c_str(), O_RDWR, 0666));
 	fprintf(stderr, "[%d]\t(rewinding) Opened the file\n", getpid());
     lock.l_type = F_WRLCK;
     fprintf(stderr, "[%d]\t(rewinding) Locking the file\n", getpid());
@@ -398,6 +403,11 @@ static bool session_expired(const string &path) {
 	return false;
 }
 
+// for lsof tests
+// static void pclose_wrapper(FILE *f) {
+// 	pclose(f);
+// }
+
 static int session_gc(const bool &immediate = false) {
 	double prob = f$lcg_value() * get_sparam(S_DIVISOR).to_float();
 	double s_prob = get_sparam(S_PROBABILITY).to_float();
@@ -411,6 +421,15 @@ static int session_gc(const bool &immediate = false) {
 		return -1;
 	}
 
+	// reset the fd before changing the session directory
+	close_safe(get_sparam(S_FD).to_int());
+
+	fprintf(stderr, "\n\tScan the session dir:\n\t");
+	for (const auto &filename : s_list.as_array()) {
+		fprintf(stderr, "%s, ", filename.get_value().to_string().c_str());
+	}
+	fprintf(stderr, "\n\n");
+
 	struct flock lock;
 	lock.l_type = F_UNLCK;
 	lock.l_whence = SEEK_SET;
@@ -421,29 +440,100 @@ static int session_gc(const bool &immediate = false) {
 	int result = 0;
 	for (auto s = s_list.as_array().begin(); s != s_list.as_array().end(); ++s) {
 		string path = s.get_value().to_string();
-		if (path == string(".") or path == string("..")) {
+		if (path[0] == '.') {
 			continue;
 		}
+
 		path = string(get_sparam(S_DIR).to_string()).append(path);
 		if (path == get_sparam(S_PATH).to_string()) {
 			continue;
 		}
+
+		{ // filter session files from others
+			int is_session, ret_is_session = get_tag(path.c_str(), "is_session", &is_session, sizeof(int));
+			if (ret_is_session < 0) {
+				continue;
+			}
+		}
+
+		// { // lsof tests (non-working)
+		// 	// dl::CriticalSectionGuard heap_guard;
+		// 	// // string cmd = string("lsof +D ").append(get_sparam(S_DIR).to_string());
+		// 	// string cmd = string("lsof");
+		// 	// fprintf(stderr, "lsof cmd: %s\n", cmd.c_str());
+		// 	// vk::unique_ptr_with_delete_function<FILE, pclose_wrapper> fp{popen(cmd.c_str(), "r")};
+		// 	// if (fp != nullptr) {
+		// 	// 	std::array<char, 4096> buff = {};
+		// 	// 	string result;
+		// 	// 	const int fd = fileno(fp.get());
+		// 	// 	std::size_t bytes_read = 0;
+		// 	// 	while ((bytes_read = read(fd, buff.data(), buff.size())) > 0) {
+		// 	// 		result.append(buff.data(), bytes_read);
+		// 	// 	}
+
+		// 	// 	auto ret = pclose(fp.release());
+		// 	// 	if (WIFEXITED(ret)) {
+		// 	// 		ret = WEXITSTATUS(ret);
+		// 	// 	}
+				
+		// 	// 	fprintf(stderr, "lsof result:\n%s\n", result.c_str());
+		// 	// }
+
+		// 	string cmd = string("lsof +D ").append(get_sparam(S_DIR).to_string());
+		// 	// string cmd = string("lsof -t ").append(path).append(string(" 2>&1"));
+		// 	fprintf(stderr, "lsof cmd: %s\n", cmd.c_str());
+		// 	mixed lsof_result;
+		// 	int64_t lsof_code;
+		// 	f$exec(cmd, lsof_result, lsof_code);
+		// 	fprintf(stderr, "lsof return code is %d\nlsof result:\n", static_cast<int>(lsof_code));
+		// 	if (lsof_result.is_array()) {
+		// 		for (const auto &it : lsof_result.as_array()) {
+		// 			fprintf(stderr, "%s\n", it.get_value().to_string().c_str());
+		// 		}
+		// 	}
+		// }
 		
+		fprintf(stderr, "\n\tOpening the session file %s\n", s.get_value().to_string().c_str());
 		int fd;
-		if ((fd = open(path.c_str(), O_RDWR, 0777)) < 0) {
+		if ((fd = open_safe(path.c_str(), O_RDWR, 0666)) < 0) {
 			php_warning("Failed to open file on path: %s", path.c_str());
 			continue;
 		}
-
+		fprintf(stderr, "\tOpened the session file %s\n", s.get_value().to_string().c_str());
+		
+		fprintf(stderr, "\tUnlocking the session file %s\n", s.get_value().to_string().c_str());
 		if (fcntl(fd, F_SETLK, &lock) < 0) {
+			fprintf(stderr, "\tsession file %s is opened, skip\n", s.get_value().to_string().c_str());
+			close_safe(fd);
 			continue;
 		}
+		fprintf(stderr, "\tUnlocked the session file %s\n", s.get_value().to_string().c_str());
 
+		close_safe(fd);
 		if (session_expired(path)) {
+			fprintf(stderr, "\tThe session %s is expired, call unlink()\n\n", s.get_value().to_string().c_str());
 			f$unlink(path);
 			++result;
 		}
 	}
+
+	lock.l_type = F_WRLCK;
+    lock.l_pid = getpid();
+    set_sparam(S_FD, open_safe(get_sparam(S_PATH).to_string().c_str(), O_RDWR, 0666));
+    if (get_sparam(S_FD).to_int() < 0) {
+    	php_warning("Failed to reopen the file %s after session_gc()", get_sparam(S_PATH).to_string().c_str());
+    	session_abort();
+    } else {
+    	fcntl(get_sparam(S_FD).to_int(), F_SETLKW, &lock);
+    }
+
+	fprintf(stderr, "\n\tScan the session dir after gc():\n\t");
+	s_list = f$scandir(get_sparam(S_DIR).to_string());
+	for (const auto &filename : s_list.as_array()) {
+		fprintf(stderr, "%s, ", filename.get_value().to_string().c_str());
+	}
+	fprintf(stderr, "\n\n");
+
 	return result;
 }
 
