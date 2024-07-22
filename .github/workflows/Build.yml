@@ -11,7 +11,8 @@ env:
   kphp_root_dir: /home/kitten/kphp
   kphp_polyfills_dir: /home/kitten/kphp/kphp-polyfills
   kphp_build_dir: /home/kitten/kphp/build
-  session_php_script: /home/kitten/kphp/docs/session_test.php
+  test_session_php_script: /home/kitten/kphp/docs/session_test.php
+  test_session_gc_php_script: /home/kitten/kphp/docs/test_session_gc.php
   kphp_snippets_dir: /home/kitten/kphp/kphp-snippets
   kphp_snippets_jobs_dir: /home/kitten/kphp/kphp-snippets/JobWorkers
 
@@ -124,15 +125,15 @@ jobs:
 
     - name: Copy the session_test file
       run: docker exec kphp-build-container-${{matrix.os}} bash -c
-              "cp ${{env.session_php_script}} ${{env.kphp_snippets_dir}}/JobWorkers/"
+              "cp ${{env.test_session_gc_php_script}} ${{env.kphp_snippets_dir}}/JobWorkers/"
 
     - name: Compile the session_test project
       run: docker exec kphp-build-container-${{matrix.os}} bash -c
-              "cd ${{env.kphp_snippets_dir}}/JobWorkers/ && ${{env.kphp_root_dir}}/objs/bin/kphp2cpp --cxx ${{matrix.compiler}} session_test.php -I .. -M server"
+              "cd ${{env.kphp_snippets_dir}}/JobWorkers/ && ${{env.kphp_root_dir}}/objs/bin/kphp2cpp --cxx ${{matrix.compiler}} -I .. -M server test_session_gc.php"
 
     - name: Start the server
       run: docker exec kphp-build-container-${{matrix.os}} bash -c
-              "cd ${{env.kphp_snippets_dir}}/JobWorkers/ && ./kphp_out/server -f 2 --http-port 8080 --job-workers-ratio 0.5 --sql-port 5555 --user kitten &> log.txt &"
+              "cd ${{env.kphp_snippets_dir}}/JobWorkers/ && ./kphp_out/server -f 4 --http-port 8080 --job-workers-ratio 0.5 --sql-port 5555 --user kitten &> log.txt &"
 
     - name: Install curl
       run: docker exec kphp-build-container-${{matrix.os}} bash -c

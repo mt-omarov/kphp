@@ -11,6 +11,7 @@
 #include "runtime/interface.h"
 #include "runtime/url.h"
 #include "runtime/math_functions.h"
+#include "runtime/exec.h"
 
 namespace sessions {
 
@@ -240,6 +241,9 @@ static bool session_open() {
 	int ret_gc_lifetime = get_tag(get_sparam(S_PATH).to_string().c_str(), S_LIFETIME, NULL, 0);
 	if (is_new or ret_ctime < 0) {
 		// add the creation data to metadata of file
+		int is_session = 1;
+		set_tag(get_sparam(S_PATH).to_string().c_str(), "is_session", &is_session, sizeof(int));
+
 		int ctime = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 		set_tag(get_sparam(S_PATH).to_string().c_str(), S_CTIME, &ctime, sizeof(int));
 	}
@@ -409,6 +413,15 @@ static int session_gc(const bool &immediate = false) {
 		return -1;
 	}
 
+	// reset the fd before changing the session directory
+	close_safe(get_sparam(S_FD).to_int());
+	
+	fprintf(stderr, "\n\tScan the session dir:\n\t");
+	for (const auto &filename : s_list.as_array()) {
+		fprintf(stderr, "%s, ", filename.get_value().to_string().c_str());
+	}
+	fprintf(stderr, "\n\n");
+
 	struct flock lock;
 	lock.l_type = F_UNLCK;
 	lock.l_whence = SEEK_SET;
@@ -419,29 +432,75 @@ static int session_gc(const bool &immediate = false) {
 	int result = 0;
 	for (auto s = s_list.as_array().begin(); s != s_list.as_array().end(); ++s) {
 		string path = s.get_value().to_string();
-		if (path == string(".") or path == string("..")) {
+		if (path[0] == '.') {
 			continue;
 		}
 		path = string(get_sparam(S_DIR).to_string()).append(path);
 		if (path == get_sparam(S_PATH).to_string()) {
 			continue;
 		}
+
+		{ // filter session files from others
+			int is_session, ret_is_session = get_tag(path.c_str(), "is_session", &is_session, sizeof(int));
+			if (ret_is_session < 0) {
+				continue;
+			}
+		}
+
+		{ // lsof processes
+			string cmd = string("lsof +D ").append(get_sparam(S_DIR).to_string());
+			fprintf(stderr, "lsof cmd: %s\n", cmd.c_str());
+			mixed lsof_result;
+			int64_t lsof_code;
+			f$exec(cmd, lsof_result, lsof_code);
+			fprintf(stderr, "lsof return code is %d\nlsof result:\n", static_cast<int>(lsof_code));
+			if (lsof_result.is_array()) {
+				for (const auto &it : lsof_result.as_array()) {
+					fprintf(stderr, "%s\n", it.get_value().to_string().c_str());
+				}
+			}
+		}
 		
-		int fd;
-		if ((fd = open(path.c_str(), O_RDWR, 0777)) < 0) {
+		fprintf(stderr, "\n\tOpening the session file %s\n", s.get_value().to_string().c_str());
+		int fd = open_safe(path.c_str(), O_RDWR, 0666);
+		if (fd < 0) {
+			fprintf(stderr, "\tFailed to open the session file %s\n", s.get_value().to_string().c_str());
 			php_warning("Failed to open file on path: %s", path.c_str());
 			continue;
 		}
-
+		fprintf(stderr, "\tOpened the session file %s\n", s.get_value().to_string().c_str());
+		fprintf(stderr, "\tUnlocking the session file %s\n", s.get_value().to_string().c_str());
 		if (fcntl(fd, F_SETLK, &lock) < 0) {
+			close_safe(fd);
 			continue;
 		}
+		fprintf(stderr, "\tUnlocked the session file %s\n", s.get_value().to_string().c_str());
 
+		close_safe(fd);
 		if (session_expired(path)) {
+			fprintf(stderr, "\tThe session %s is expired, call unlink()\n\n", s.get_value().to_string().c_str());
 			f$unlink(path);
 			++result;
 		}
 	}
+
+	lock.l_type = F_WRLCK;
+	lock.l_pid = getpid();
+	set_sparam(S_FD, open_safe(get_sparam(S_PATH).to_string().c_str(), O_RDWR, 0666));
+	if (get_sparam(S_FD).to_int() < 0) {
+		php_warning("Failed to reopen the file %s after session_gc()", get_sparam(S_PATH).to_string().c_str());
+		session_abort();
+	} else {
+		fcntl(get_sparam(S_FD).to_int(), F_SETLKW, &lock);
+	}
+
+	fprintf(stderr, "\n\tScan the session dir after gc():\n\t");
+	s_list = f$scandir(get_sparam(S_DIR).to_string());
+	for (const auto &filename : s_list.as_array()) {
+		fprintf(stderr, "%s, ", filename.get_value().to_string().c_str());
+	}
+	fprintf(stderr, "\n\n");
+
 	return result;
 }
 
