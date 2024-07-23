@@ -219,22 +219,12 @@ static bool session_open() {
 	}
 	fprintf(stderr, "[%d]\tSuccessfully opened the session file %s\n", getpid(), get_sparam(S_PATH).to_string().c_str());
 
-	struct flock lock;
-	lock.l_type = F_WRLCK; // Exclusive write lock
-    lock.l_whence = SEEK_SET;
-    lock.l_start = 0;
-    lock.l_len = 0;
-    lock.l_pid = getpid();
-
-    fprintf(stderr, "[%d]\tLocking the session file %s\n", getpid(), get_sparam(S_PATH).to_string().c_str());
-    int ret = fcntl(get_sparam(S_FD).to_int(), F_SETLKW, &lock);
-
-    if (ret < 0 && errno == EDEADLK) {
-    	php_warning("Attempt to lock alredy locked session file, path: %s", get_sparam(S_PATH).to_string().c_str());
-    	fprintf(stderr, "[%d]\tFailed to lock the session file %s\n", getpid(), get_sparam(S_PATH).to_string().c_str());
-    	return false;
-    }
-    fprintf(stderr, "[%d]\tSuccessfully lock the session file %s\n", getpid(), get_sparam(S_PATH).to_string().c_str());
+	int start = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+	fprintf(stderr, "\t[%d]\tLocking the session file %s at %d\n", getpid(), get_sparam(S_PATH).to_string().c_str(), start);
+	lockf(get_sparam(S_FD).to_int(), F_LOCK, 0);
+	int end = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    fprintf(stderr, "\t[%d]\tSuccessfully lock the session file %s\n", getpid(), get_sparam(S_PATH).to_string().c_str());
+    fprintf(stderr, "\t[%d]\twaited %d\n", getpid(), end - start);
 
 	// set new metadata to the file
 	int ret_ctime = get_tag(get_sparam(S_PATH).to_string().c_str(), S_CTIME, NULL, 0);
@@ -257,16 +247,9 @@ static bool session_open() {
 
 static void session_close() {
 	fprintf(stderr, "[%d]->sessions::session_close()\n", getpid());
-	if (get_sparam(S_FD).to_bool() && (fcntl(get_sparam(S_FD).to_int(), F_GETFD) != -1 || errno != EBADF)) {
-		struct flock lock;
-		lock.l_type = F_UNLCK;
-		lock.l_whence = SEEK_SET;
-		lock.l_start = 0;
-		lock.l_len = 0;
-		lock.l_pid = getpid();
-
+	if (get_sparam(S_FD).to_bool()) {
 		fprintf(stderr, "[%d]\tUnlocking the session file %s\n", getpid(), get_sparam(S_PATH).to_string().c_str());
-		fcntl(get_sparam(S_FD).to_int(), F_SETLKW, &lock);
+		lockf(get_sparam(S_FD).to_int(), F_ULOCK, 0);
 		fprintf(stderr, "[%d]\tUnlocked the session file %s\n", getpid(), get_sparam(S_PATH).to_string().c_str());
 		fprintf(stderr, "[%d]\tNow closing the session file %s\n\n", getpid(), get_sparam(S_PATH).to_string().c_str());
 		close_safe(get_sparam(S_FD).to_int());
@@ -314,26 +297,11 @@ static bool session_write() {
 
 	// rewind the fd
 	fprintf(stderr, "[%d]\trewinding the S_FD\n", getpid());
-	struct flock lock;
-	lock.l_type = F_UNLCK;
-    lock.l_whence = SEEK_SET;
-    lock.l_start = 0;
-    lock.l_len = 0;
-    lock.l_pid = getpid();
-    fprintf(stderr, "[%d]\t(rewinding) Unlocking the file before closing\n", getpid());
-	fcntl(get_sparam(S_FD).to_int(), F_SETLKW, &lock);
-	fprintf(stderr, "[%d]\t(rewinding) Unlocked the file before closing\n", getpid());
-	close_safe(get_sparam(S_FD).to_int());
-	fprintf(stderr, "[%d]\t(rewinding) Closed the file\n", getpid());
-	
-	fprintf(stderr, "[%d]\t(rewinding) Opening the file\n", getpid());
-	set_sparam(S_FD, open_safe(get_sparam(S_PATH).to_string().c_str(), O_RDWR, 0666));
-	fprintf(stderr, "[%d]\t(rewinding) Opened the file\n", getpid());
-    lock.l_type = F_WRLCK;
-    fprintf(stderr, "[%d]\t(rewinding) Locking the file\n", getpid());
-    fcntl(get_sparam(S_FD).to_int(), F_SETLKW, &lock);
-    fprintf(stderr, "[%d]\t(rewinding) Locked the file\n", getpid());
-    fprintf(stderr, "[%d]\tSuccessfully rewind the S_FD: %s\n", getpid(), get_sparam(S_ID).to_string().c_str());
+	int ret = lseek(get_sparam(S_FD).to_int(), 0, SEEK_SET);
+
+	if (ret >= 0) {
+		fprintf(stderr, "[%d]\tsuccessfully rewind the S_FD: %s\n", getpid(), get_sparam(S_ID).to_string().c_str());
+	}
 
 	string data = f$serialize(v$_SESSION.as_array());
 
@@ -422,13 +390,6 @@ static int session_gc(const bool &immediate = false) {
 	}
 	fprintf(stderr, "\n\n");
 
-	struct flock lock;
-	lock.l_type = F_UNLCK;
-	lock.l_whence = SEEK_SET;
-	lock.l_start = 0;
-	lock.l_len = 0;
-	lock.l_pid = getpid();
-
 	int result = 0;
 	for (auto s = s_list.as_array().begin(); s != s_list.as_array().end(); ++s) {
 		string path = s.get_value().to_string();
@@ -446,20 +407,6 @@ static int session_gc(const bool &immediate = false) {
 				continue;
 			}
 		}
-
-		{ // lsof processes
-			string cmd = string("lsof +D ").append(get_sparam(S_DIR).to_string());
-			fprintf(stderr, "lsof cmd: %s\n", cmd.c_str());
-			mixed lsof_result;
-			int64_t lsof_code;
-			f$exec(cmd, lsof_result, lsof_code);
-			fprintf(stderr, "lsof return code is %d\nlsof result:\n", static_cast<int>(lsof_code));
-			if (lsof_result.is_array()) {
-				for (const auto &it : lsof_result.as_array()) {
-					fprintf(stderr, "%s\n", it.get_value().to_string().c_str());
-				}
-			}
-		}
 		
 		fprintf(stderr, "\n\tOpening the session file %s\n", s.get_value().to_string().c_str());
 		int fd = open_safe(path.c_str(), O_RDWR, 0666);
@@ -470,11 +417,12 @@ static int session_gc(const bool &immediate = false) {
 		}
 		fprintf(stderr, "\tOpened the session file %s\n", s.get_value().to_string().c_str());
 		fprintf(stderr, "\tUnlocking the session file %s\n", s.get_value().to_string().c_str());
-		if (fcntl(fd, F_SETLK, &lock) < 0) {
+		if (lockf(fd, F_TEST, 0) < 0) {
 			close_safe(fd);
 			continue;
 		}
-		fprintf(stderr, "\tUnlocked the session file %s\n", s.get_value().to_string().c_str());
+
+		fprintf(stderr, "\tThe session file %s is unlocked\n", s.get_value().to_string().c_str());
 
 		close_safe(fd);
 		if (session_expired(path)) {
@@ -484,14 +432,12 @@ static int session_gc(const bool &immediate = false) {
 		}
 	}
 
-	lock.l_type = F_WRLCK;
-	lock.l_pid = getpid();
 	set_sparam(S_FD, open_safe(get_sparam(S_PATH).to_string().c_str(), O_RDWR, 0666));
 	if (get_sparam(S_FD).to_int() < 0) {
 		php_warning("Failed to reopen the file %s after session_gc()", get_sparam(S_PATH).to_string().c_str());
 		session_abort();
 	} else {
-		fcntl(get_sparam(S_FD).to_int(), F_SETLKW, &lock);
+		lockf(get_sparam(S_FD).to_int(), F_LOCK, 0);
 	}
 
 	fprintf(stderr, "\n\tScan the session dir after gc():\n\t");
