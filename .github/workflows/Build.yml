@@ -13,6 +13,7 @@ env:
   kphp_build_dir: /home/kitten/kphp/build
   test_session_php_script: /home/kitten/kphp/docs/session_test.php
   test_session_gc_php_script: /home/kitten/kphp/docs/test_session_gc.php
+  test_session_wait_all_php_script: /home/kitten/kphp/docs/test_wait_all.php
   kphp_snippets_dir: /home/kitten/kphp/kphp-snippets
   kphp_snippets_jobs_dir: /home/kitten/kphp/kphp-snippets/JobWorkers
 
@@ -125,11 +126,11 @@ jobs:
 
     - name: Copy the session_test file
       run: docker exec kphp-build-container-${{matrix.os}} bash -c
-              "cp ${{env.test_session_gc_php_script}} ${{env.kphp_snippets_dir}}/JobWorkers/"
+              "cp ${{env.test_session_wait_all_php_script}} ${{env.kphp_snippets_dir}}/JobWorkers/"
 
     - name: Compile the session_test project
       run: docker exec kphp-build-container-${{matrix.os}} bash -c
-              "cd ${{env.kphp_snippets_dir}}/JobWorkers/ && ${{env.kphp_root_dir}}/objs/bin/kphp2cpp --cxx ${{matrix.compiler}} -I .. -M server test_session_gc.php"
+              "cd ${{env.kphp_snippets_dir}}/JobWorkers/ && ${{env.kphp_root_dir}}/objs/bin/kphp2cpp --cxx ${{matrix.compiler}} -I .. -M server test_wait_all.php"
 
     - name: Start the server
       run: docker exec kphp-build-container-${{matrix.os}} bash -c
